@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeAIthon Secure Camera</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #2c2c2c;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            font-weight: 500;
+        }
+
+        #webcam-container {
+            width: 400px;
+            height: 400px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #555;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        #capture-button {
+            margin-top: 25px;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: white;
+            background-color: #0a84ff;
+            border: none;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        #capture-button.disabled {
+            background-color: #555;
+            color: #999;
+            opacity: 0.7;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        #status-text {
+            margin-top: 15px;
+            font-size: 1.1em;
+            padding: 8px 15px;
+            border-radius: 8px;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>VibeAIthon Secure Camera</h1>
+    
+    <div id="webcam-container"></div>
+    
+    <div id="status-text">Starting Camera...</div>
+    
+    <button id="capture-button">Capture</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script type="text/javascript">
+        // ----------------------------------------------------
+        // --- (1) VARIABLES ---
+        // ----------------------------------------------------
+        
+        // This is your correct model URL
+        const MODEL_URL = "https://teachablemachine.withgoogle.com/models/CdbpGu3t9/"; 
+
+        // This MUST match the label you created in Teachable Machine
+        const WATERMARK_LABEL = "Watermark"; 
+        
+        // ✅ FIX #2: Lowered the threshold to 80%
+        // 90% was probably too high. If it still fails, check the console
+        // and you might need to lower it to 0.70 or 0.60.
+        const CONFIDENCE_THRESHOLD = 0.80; 
+        
+        // ----------------------------------------------------
+        // --- (2) GET HTML ELEMENTS ---
+        // ----------------------------------------------------
+        const webcamContainer = document.getElementById("webcam-container");
+        const captureButton = document.getElementById("capture-button");
+        const statusText = document.getElementById("status-text");
+
+        let model, webcam, maxPredictions;
+
+        // ----------------------------------------------------
+        // --- (3) MAIN APP LOGIC ---
+        // ----------------------------------------------------
+
+        async function init() {
+            const modelURL = MODEL_URL + "model.json";
+            const metadataURL = MODEL_URL + "metadata.json";
+
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+
+                // ✅ FIX #1: Added the 'flip' variable here
+                const flip = true; // Use true for a "selfie" view
+                webcam = new tmImage.Webcam(400, 400, flip); // <-- THE FIX IS HERE
+                await webcam.setup(); // Request camera access
+                await webcam.play();
+                
+                webcamContainer.appendChild(webcam.canvas);
+                statusText.innerHTML = "Status: Point at exam screen";
+                
+                window.requestAnimationFrame(loop);
+            } catch (e) {
+                console.error(e);
+                statusText.innerHTML = "Error: Could not load model. Check URL.";
+            }
+        }
+
+        async function loop() {
+            webcam.update(); 
+            await predict(); 
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            
+            // ✅ FIX #3: Added this debug line.
+            // Check your console (F12 or Right-Click -> Inspect) to see the live predictions!
+            console.log(prediction);
+
+            let watermarkFound = false;
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const className = prediction[i].className;
+                const probability = prediction[i].probability;
+
+                if (className === WATERMARK_LABEL && probability > CONFIDENCE_THRESHOLD) {
+                    watermarkFound = true;
+                    break;
+                }
+            }
+
+            // --- THIS CONTROLS THE BUTTON ---
+            if (watermarkFound) {
+                statusText.innerHTML = "Malpractice Detected! Capture Disabled.";
+                captureButton.classList.add("disabled");
+                captureButton.disabled = true;
+            } else {
+                statusText.innerHTML = "Status: Normal";
+                captureButton.classList.remove("disabled");
+                captureButton.disabled = false;
+            }
+        }
+        
+        captureButton.addEventListener("click", () => {
+            alert("Image Captured!");
+        });
+
+        init();
+
+    </script>
+</body>
+</html>
