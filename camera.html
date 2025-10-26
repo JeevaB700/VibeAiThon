@@ -5,72 +5,176 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VibeAIthon Secure Camera</title>
     <style>
+        /* Basic reset */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+    
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #2c2c2c;
+            background-color: #000; /* Black background */
             color: white;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            margin: 0;
-            overflow: hidden;
+            width: 100vw;
+            overflow: hidden; /* Prevents scrollbars */
         }
-
-        h1 {
-            font-weight: 500;
-        }
-
+    
+        /* 1. Main Viewfinder (where camera feed appears) */
         #webcam-container {
-            width: 400px;
-            height: 400px;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid #555;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
         }
-
-        #capture-button {
-            margin-top: 25px;
-            padding: 15px 30px;
-            font-size: 1.2em;
+    
+        /* This makes the <canvas> from JS fill the screen */
+        #webcam-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover; /* Fills the screen, cropping if needed */
+        }
+    
+        /* 2. Status Overlay (Top) */
+        #status-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            z-index: 10;
+            text-align: center;
+            /* Gradient to make text readable */
+            background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0));
+        }
+    
+        #status-text {
+            font-size: 1.1em;
             font-weight: bold;
             color: white;
-            background-color: #0a84ff;
-            border: none;
-            border-radius: 100px;
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            padding: 10px 15px;
+            border-radius: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: inline-block; /* So background fits text */
+            transition: all 0.3s ease;
         }
-
+    
+        /* 3. Main Controls (Bottom) */
+        .camera-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px 30px;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            /* Gradient to make buttons clear */
+            background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
+        }
+    
+        .control-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+    
+        /* 4. Capture Button Styling */
+        #capture-button {
+            width: 70px;
+            height: 70px;
+            background-color: #fff;
+            border-radius: 50%;
+            border: 5px solid #fff;
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.3);
+            outline: none;
+            transition: all 0.2s ease-in-out;
+        }
+        
+        /* "Pressed" effect */
+        #capture-button:active {
+            transform: scale(0.9);
+        }
+        
+        /* This is your existing 'disabled' class from JS */
         #capture-button.disabled {
-            background-color: #555;
-            color: #999;
+            background-color: #999;
+            border-color: #999;
             opacity: 0.7;
             cursor: not-allowed;
             pointer-events: none;
         }
-
-        #status-text {
-            margin-top: 15px;
-            font-size: 1.1em;
-            padding: 8px 15px;
-            border-radius: 8px;
-            background-color: rgba(0, 0, 0, 0.3);
+    
+        /* 5. Switch Camera Button Styling */
+        #switch-button {
+            width: 50px; /* Smaller than capture button */
+            height: 50px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
+    
+        #switch-button svg {
+            width: 24px;
+            height: 24px;
+            fill: #fff;
+        }
+        
+        /* Spacer to center the main button */
+        .control-button-spacer {
+            width: 50px; /* Same size as switch button */
+        }
+    
+    
+        /* 6. Debug Label Container (Hidden by default) */
+        #label-container {
+            position: absolute;
+            bottom: 140px; /* Above the control bar */
+            width: 100%;
+            text-align: center;
+            z-index: 5;
+            font-size: 1.2em;
+            font-weight: bold;
+            background-color: rgba(0, 0, 0, 0.4);
+            padding: 10px;
+            /* --- UNCOMMENT THIS LINE TO SEE THE DEBUG LABELS --- */
+            /* display: none; */
+        }
+    
     </style>
 </head>
 <body>
 
-    <h1>VibeAIthon Secure Camera</h1>
-    
+<div id="status-overlay">
+        <div id="status-text">Starting Camera...</div>
+    </div>
+
     <div id="webcam-container"></div>
+
+    <div id="label-container"></div>
     
-    <div id="status-text">Starting Camera...</div>
-    
-    <button id="capture-button">Capture</button>
+    <div class="camera-controls">
+        <button id="switch-button" class="control-button">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M11.534 7.034a.5.5 0 0 0 .14.183l3 3a.5.5 0 0 0 .708-.708L12.39 6.5H15.5a.5.5 0 0 0 0-1h-3.11l2.03-2.03a.5.5 0 0 0-.708-.708l-3 3a.5.5 0 0 0 .14.883zM1.5 4.5A.5.5 0 0 0 1 5v6a.5.5 0 0 0 .5.5h3.11l-2.03 2.03a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0-.14-.883a.5.5 0 0 0-.14-.183l-3-3a.5.5 0 0 0-.708.708L3.61 9.5H.5a.5.5 0 0 0 0 1h3.11l-2.03 2.03a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 .14-.883z"/>
+                <path d="M9.5 13.5a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v3zm-7-7a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v3z"/>
+            </svg>
+        </button>
+        
+        <button id="capture-button" class="control-button"></button>
+        
+        <div class="control-button-spacer"></div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
@@ -80,80 +184,108 @@
         // --- (1) VARIABLES ---
         // ----------------------------------------------------
         
-        // This is your correct model URL
         const MODEL_URL = "https://teachablemachine.withgoogle.com/models/CdbpGu3t9/"; 
-
-        // This MUST match the label you created in Teachable Machine
-        const WATERMARK_LABEL = "Watermark"; 
-        
-        // ✅ FIX #2: Lowered the threshold to 80%
-        // 90% was probably too high. If it still fails, check the console
-        // and you might need to lower it to 0.70 or 0.60.
-        const CONFIDENCE_THRESHOLD = 0.80; 
+        const WATERMARK_LABEL = "Watermark"; // You said this was the correct name
+        const CONFIDENCE_THRESHOLD = 0.80;
         
         // ----------------------------------------------------
         // --- (2) GET HTML ELEMENTS ---
         // ----------------------------------------------------
         const webcamContainer = document.getElementById("webcam-container");
         const captureButton = document.getElementById("capture-button");
+        const switchButton = document.getElementById("switch-button"); // NEW
         const statusText = document.getElementById("status-text");
+        let labelContainer;
 
         let model, webcam, maxPredictions;
+        
+        // NEW VARIABLE to track which camera is active
+        let currentFacingMode = "environment"; // Start with the back camera
 
         // ----------------------------------------------------
         // --- (3) MAIN APP LOGIC ---
         // ----------------------------------------------------
-
-        async function init() {
+        
+        // This function now takes a facingMode
+        async function init(facingMode) {
             const modelURL = MODEL_URL + "model.json";
             const metadataURL = MODEL_URL + "metadata.json";
 
-            try {
-                model = await tmImage.load(modelURL, metadataURL);
-                maxPredictions = model.getTotalClasses();
+            // Stop any existing webcam stream
+            if (webcam && webcam.stream) {
+                webcam.stop();
+            }
 
-                // ✅ FIX #1: Added the 'flip' variable here
-                const flip = true; // Use true for a "selfie" view
-                webcam = new tmImage.Webcam(400, 400, flip); // <-- THE FIX IS HERE
-                await webcam.setup(); // Request camera access
+            try {
+                if (!model) { // Only load model on the first run
+                    model = await tmImage.load(modelURL, metadataURL);
+                    maxPredictions = model.getTotalClasses();
+                }
+
+                // Define the new video constraints
+                const videoConstraints = {
+                    facingMode: facingMode
+                };
+
+                const flip = (facingMode === "user"); // Flip only if it's the front camera
+                webcam = new tmImage.Webcam(400, 400, flip);
+                
+                // Pass the new constraints to setup
+                await webcam.setup({ video: videoConstraints }); 
                 await webcam.play();
                 
+                // Clear the container and add the new canvas
+                webcamContainer.innerHTML = ''; // Clear old webcam canvas
                 webcamContainer.appendChild(webcam.canvas);
+                
                 statusText.innerHTML = "Status: Point at exam screen";
+                
+                if (!labelContainer) { // Only create labels on the first run
+                    labelContainer = document.getElementById("label-container");
+                    for (let i = 0; i < maxPredictions; i++) {
+                        labelContainer.appendChild(document.createElement("div"));
+                    }
+                }
                 
                 window.requestAnimationFrame(loop);
             } catch (e) {
                 console.error(e);
-                statusText.innerHTML = "Error: Could not load model. Check URL.";
+                statusText.innerHTML = "Error: Camera failed to start.";
+                if (e.name === "OverconstrainedError") {
+                    statusText.innerHTML = "Error: Back camera not found. Trying front camera.";
+                    // Fallback to "user" if "environment" fails
+                    if (currentFacingMode === "environment") {
+                        currentFacingMode = "user";
+                        init(currentFacingMode); // Try again with the front camera
+                    }
+                }
             }
         }
 
         async function loop() {
-            webcam.update(); 
-            await predict(); 
-            window.requestAnimationFrame(loop);
+            if (webcam && webcam.canvas) {
+                webcam.update(); 
+                await predict(); 
+                window.requestAnimationFrame(loop);
+            }
         }
 
         async function predict() {
             const prediction = await model.predict(webcam.canvas);
-            
-            // ✅ FIX #3: Added this debug line.
-            // Check your console (F12 or Right-Click -> Inspect) to see the live predictions!
-            console.log(prediction);
-
             let watermarkFound = false;
 
             for (let i = 0; i < maxPredictions; i++) {
                 const className = prediction[i].className;
                 const probability = prediction[i].probability;
 
+                const classPrediction = className + ": " + probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+
                 if (className === WATERMARK_LABEL && probability > CONFIDENCE_THRESHOLD) {
                     watermarkFound = true;
-                    break;
                 }
             }
 
-            // --- THIS CONTROLS THE BUTTON ---
             if (watermarkFound) {
                 statusText.innerHTML = "Malpractice Detected! Capture Disabled.";
                 captureButton.classList.add("disabled");
@@ -165,11 +297,25 @@
             }
         }
         
+        // --- (4) EVENT LISTENERS ---
+        
         captureButton.addEventListener("click", () => {
             alert("Image Captured!");
         });
 
-        init();
+        // NEW: Event listener for the switch camera button
+        switchButton.addEventListener("click", () => {
+            if (currentFacingMode === "environment") {
+                currentFacingMode = "user"; // Switch to front
+            } else {
+                currentFacingMode = "environment"; // Switch to back
+            }
+            // Re-initialize the camera with the new facingMode
+            init(currentFacingMode);
+        });
+
+        // Start the application with the back camera
+        init(currentFacingMode);
 
     </script>
 </body>
