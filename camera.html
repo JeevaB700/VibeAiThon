@@ -178,14 +178,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-
     <script type="text/javascript">
         // ----------------------------------------------------
         // --- (1) VARIABLES ---
         // ----------------------------------------------------
         
         const MODEL_URL = "https://teachablemachine.withgoogle.com/models/CdbpGu3t9/"; 
-        const WATERMARK_LABEL = "Watermark"; // You said this was the correct name
+        const WATERMARK_LABEL = "Watermark";
         const CONFIDENCE_THRESHOLD = 0.80;
         
         // ----------------------------------------------------
@@ -193,54 +192,128 @@
         // ----------------------------------------------------
         const webcamContainer = document.getElementById("webcam-container");
         const captureButton = document.getElementById("capture-button");
-        const switchButton = document.getElementById("switch-button"); // NEW
+        const switchButton = document.getElementById("switch-button");
         const statusText = document.getElementById("status-text");
         let labelContainer;
 
         let model, webcam, maxPredictions;
         
-        // NEW VARIABLE to track which camera is active
-        let currentFacingMode = "environment"; // Start with the back camera
+        // --- NEW CAMERA TRACKING VARIABLES ---
+        let frontCameraId = null;
+        let backCameraId = null;
+        let currentCameraId = null;
 
         // ----------------------------------------------------
-        // --- (3) MAIN APP LOGIC ---
+        // --- (3) NEW CAMERA SETUP LOGIC ---
         // ----------------------------------------------------
         
-        // This function now takes a facingMode
-        async function init(facingMode) {
-            const modelURL = MODEL_URL + "model.json";
-            const metadataURL = MODEL_URL + "metadata.json";
+        /**
+         * This function runs once to get permissions and find all 
+         * available cameras, sorting them by "front" and "back".
+         */
+        async function setupCameras() {
+            console.log("Setting up cameras...");
+            statusText.innerHTML = "Requesting camera permission...";
 
-            // Stop any existing webcam stream
+            try {
+                // 1. Get temporary permission (this is required to read device labels)
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                // 2. Now that we have permission, get the full list of devices
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+                console.log("--- AVAILABLE VIDEO CAMERAS ---");
+                if (videoDevices.length === 0) {
+                    console.log("No video cameras found.");
+                    statusText.innerHTML = "Error: No cameras found.";
+                    return;
+                }
+
+                // 3. Find the front and back cameras by their labels
+                videoDevices.forEach((device, index) => {
+                    const label = device.label.toLowerCase();
+                    console.log(`Camera ${index}: ${label}`);
+                    
+                    if (label.includes('back') || label.includes('environment')) {
+                        backCameraId = device.deviceId;
+                    } else if (label.includes('front') || label.includes('user')) {
+                        frontCameraId = device.deviceId;
+                    }
+                });
+
+                // 4. Stop the temporary stream
+                tempStream.getTracks().forEach(track => {
+                    track.stop();
+                });
+
+                // 5. Set defaults if labels were weird or missing
+                // If we found a back camera, use it.
+                if (backCameraId) {
+                    currentCameraId = backCameraId;
+                    console.log("Found back camera by label.");
+                } 
+                // If no back camera, but we have a front and another one, use the *other* one.
+                else if (videoDevices.length > 1 && frontCameraId) {
+                    currentCameraId = videoDevices.find(d => d.deviceId !== frontCameraId).deviceId;
+                    console.log("No 'back' label found, using non-front camera.");
+                }
+                // If all else fails, just use the first camera in the list
+                else if (videoDevices.length > 0) {
+                    currentCameraId = videoDevices[0].deviceId;
+                    console.log("Using first available camera as default.");
+                }
+                
+                // If we didn't find a front camera ID, set a default for switching
+                if (!frontCameraId && videoDevices.length > 1) {
+                    frontCameraId = videoDevices.find(d => d.deviceId !== currentCameraId).deviceId;
+                }
+
+                // 6. Start the app with the correct camera
+                init(currentCameraId); 
+
+            } catch (e) {
+                console.error("Error setting up camera:", e);
+                statusText.innerHTML = "Error: Camera permission denied.";
+            }
+        }
+
+        // ----------------------------------------------------
+        // --- (4) MAIN APP LOGIC (MODIFIED) ---
+        // ----------------------------------------------------
+        
+        // This function now starts a camera by its SPECIFIC ID
+        async function init(deviceId) {
             if (webcam && webcam.stream) {
                 webcam.stop();
             }
 
             try {
                 if (!model) { // Only load model on the first run
-                    model = await tmImage.load(modelURL, metadataURL);
+                    model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
                     maxPredictions = model.getTotalClasses();
                 }
 
-                // Define the new video constraints
+                // ✅ --- THE REAL FIX ---
+                // We are forcing the browser to use an EXACT deviceId.
+                // This bypasses all the "facingMode" guesswork.
                 const videoConstraints = {
-                    facingMode: facingMode
+                    deviceId: { exact: deviceId }
                 };
 
-                const flip = (facingMode === "user"); // Flip only if it's the front camera
+                // Flip the image *only* if we're using the front camera
+                const flip = (deviceId === frontCameraId); 
                 webcam = new tmImage.Webcam(400, 400, flip);
                 
-                // Pass the new constraints to setup
                 await webcam.setup({ video: videoConstraints }); 
                 await webcam.play();
                 
-                // Clear the container and add the new canvas
-                webcamContainer.innerHTML = ''; // Clear old webcam canvas
+                webcamContainer.innerHTML = '';
                 webcamContainer.appendChild(webcam.canvas);
                 
                 statusText.innerHTML = "Status: Point at exam screen";
                 
-                if (!labelContainer) { // Only create labels on the first run
+                if (!labelContainer) {
                     labelContainer = document.getElementById("label-container");
                     for (let i = 0; i < maxPredictions; i++) {
                         labelContainer.appendChild(document.createElement("div"));
@@ -249,16 +322,8 @@
                 
                 window.requestAnimationFrame(loop);
             } catch (e) {
-                console.error(e);
+                console.error("Error starting camera:", e);
                 statusText.innerHTML = "Error: Camera failed to start.";
-                if (e.name === "OverconstrainedError") {
-                    statusText.innerHTML = "Error: Back camera not found. Trying front camera.";
-                    // Fallback to "user" if "environment" fails
-                    if (currentFacingMode === "environment") {
-                        currentFacingMode = "user";
-                        init(currentFacingMode); // Try again with the front camera
-                    }
-                }
             }
         }
 
@@ -271,6 +336,10 @@
         }
 
         async function predict() {
+            if (!webcam || !webcam.canvas) {
+                return; // Stop predicting if webcam is not ready
+            }
+            
             const prediction = await model.predict(webcam.canvas);
             let watermarkFound = false;
 
@@ -279,7 +348,9 @@
                 const probability = prediction[i].probability;
 
                 const classPrediction = className + ": " + probability.toFixed(2);
-                labelContainer.childNodes[i].innerHTML = classPrediction;
+                if (labelContainer && labelContainer.childNodes[i]) {
+                    labelContainer.childNodes[i].innerHTML = classPrediction;
+                }
 
                 if (className === WATERMARK_LABEL && probability > CONFIDENCE_THRESHOLD) {
                     watermarkFound = true;
@@ -297,7 +368,7 @@
             }
         }
         
-        // --- (4) EVENT LISTENERS ---
+        // --- (5) EVENT LISTENERS (MODIFIED) ---
         
         captureButton.addEventListener("click", () => {
             alert("Image Captured!");
@@ -305,17 +376,19 @@
 
         // NEW: Event listener for the switch camera button
         switchButton.addEventListener("click", () => {
-            if (currentFacingMode === "environment") {
-                currentFacingMode = "user"; // Switch to front
+            if (currentCameraId === backCameraId) {
+                currentCameraId = frontCameraId;
+                init(frontCameraId); // Switch to front
             } else {
-                currentFacingMode = "environment"; // Switch to back
+                currentCameraId = backCameraId;
+                init(backCameraId); // Switch to back
             }
-            // Re-initialize the camera with the new facingMode
-            init(currentFacingMode);
         });
 
-        // Start the application with the back camera
-        init(currentFacingMode);
+        // --- (6) START THE APP ---
+        
+        // Start the new camera setup process
+        setupCameras();
 
     </script>
 </body>
