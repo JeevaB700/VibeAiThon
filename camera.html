@@ -1,395 +1,268 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VibeAIthon Secure Camera</title>
-    <style>
-        /* Basic reset */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-    
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #000; /* Black background */
-            color: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden; /* Prevents scrollbars */
-        }
-    
-        /* 1. Main Viewfinder (where camera feed appears) */
-        #webcam-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-    
-        /* This makes the <canvas> from JS fill the screen */
-        #webcam-container canvas {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover; /* Fills the screen, cropping if needed */
-        }
-    
-        /* 2. Status Overlay (Top) */
-        #status-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            padding: 20px;
-            z-index: 10;
-            text-align: center;
-            /* Gradient to make text readable */
-            background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0));
-        }
-    
-        #status-text {
-            font-size: 1.1em;
-            font-weight: bold;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 20px;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: inline-block; /* So background fits text */
-            transition: all 0.3s ease;
-        }
-    
-        /* 3. Main Controls (Bottom) */
-        .camera-controls {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            padding: 20px 30px;
-            z-index: 10;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            /* Gradient to make buttons clear */
-            background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0));
-        }
-    
-        .control-button {
-            background: none;
-            border: none;
-            cursor: pointer;
-        }
-    
-        /* 4. Capture Button Styling */
-        #capture-button {
-            width: 70px;
-            height: 70px;
-            background-color: #fff;
-            border-radius: 50%;
-            border: 5px solid #fff;
-            box-shadow: 0 0 0 3px rgba(0,0,0,0.3);
-            outline: none;
-            transition: all 0.2s ease-in-out;
-        }
-        
-        /* "Pressed" effect */
-        #capture-button:active {
-            transform: scale(0.9);
-        }
-        
-        /* This is your existing 'disabled' class from JS */
-        #capture-button.disabled {
-            background-color: #999;
-            border-color: #999;
-            opacity: 0.7;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-    
-        /* 5. Switch Camera Button Styling */
-        #switch-button {
-            width: 50px; /* Smaller than capture button */
-            height: 50px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-    
-        #switch-button svg {
-            width: 24px;
-            height: 24px;
-            fill: #fff;
-        }
-        
-        /* Spacer to center the main button */
-        .control-button-spacer {
-            width: 50px; /* Same size as switch button */
-        }
-    
-    
-        /* 6. Debug Label Container (Hidden by default) */
-        #label-container {
-            position: absolute;
-            bottom: 140px; /* Above the control bar */
-            width: 100%;
-            text-align: center;
-            z-index: 5;
-            font-size: 1.2em;
-            font-weight: bold;
-            background-color: rgba(0, 0, 0, 0.4);
-            padding: 10px;
-            /* --- UNCOMMENT THIS LINE TO SEE THE DEBUG LABELS --- */
-            /* display: none; */
-        }
-    
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeAIthon Secure Camera</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      background: radial-gradient(circle at top, #1b2735, #090a0f);
+      font-family: "Poppins", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      overflow: hidden;
+    }
+
+    .camera-wrapper {
+      backdrop-filter: blur(18px);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      padding: 25px 25px 35px;
+      width: 90%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+      animation: fadeIn 1s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(40px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    h1 {
+      font-weight: 600;
+      font-size: 1.4rem;
+      margin-bottom: 15px;
+      letter-spacing: 1px;
+    }
+
+    #webcam-container {
+      width: 100%;
+      aspect-ratio: 1/1;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    #status-text {
+      margin-top: 18px;
+      font-size: 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px 15px;
+      border-radius: 8px;
+      display: inline-block;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-group {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 25px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 1em;
+      border: none;
+      border-radius: 100px;
+      padding: 12px 25px;
+      cursor: pointer;
+      color: white;
+      background: linear-gradient(135deg, #007aff, #00c6ff);
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    button.disabled {
+      background: #555;
+      color: #aaa;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    #switch-button {
+      background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    }
+
+    footer {
+      margin-top: 18px;
+      font-size: 0.85rem;
+      opacity: 0.6;
+    }
+
+    #snapshot-container {
+      margin-top: 20px;
+    }
+
+    #snapshot {
+      width: 100%;
+      border-radius: 16px;
+      margin-top: 10px;
+      display: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    #download-button {
+      display: none;
+      margin-top: 12px;
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+    }
+  </style>
 </head>
 <body>
-
-<div id="status-overlay">
-        <div id="status-text">Starting Camera...</div>
-    </div>
+  <div class="camera-wrapper">
+    <h1>📸 VibeAIthon Secure Camera</h1>
 
     <div id="webcam-container"></div>
 
-    <div id="label-container"></div>
-    
-    <div class="camera-controls">
-        <button id="switch-button" class="control-button">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M11.534 7.034a.5.5 0 0 0 .14.183l3 3a.5.5 0 0 0 .708-.708L12.39 6.5H15.5a.5.5 0 0 0 0-1h-3.11l2.03-2.03a.5.5 0 0 0-.708-.708l-3 3a.5.5 0 0 0 .14.883zM1.5 4.5A.5.5 0 0 0 1 5v6a.5.5 0 0 0 .5.5h3.11l-2.03 2.03a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0-.14-.883a.5.5 0 0 0-.14-.183l-3-3a.5.5 0 0 0-.708.708L3.61 9.5H.5a.5.5 0 0 0 0 1h3.11l-2.03 2.03a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 .14-.883z"/>
-                <path d="M9.5 13.5a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v3zm-7-7a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v3z"/>
-            </svg>
-        </button>
-        
-        <button id="capture-button" class="control-button"></button>
-        
-        <div class="control-button-spacer"></div>
+    <div id="status-text">Initializing Camera...</div>
+
+    <div class="btn-group">
+      <button id="capture-button">Capture</button>
+      <button id="switch-button">Switch Camera</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    <script type="text/javascript">
-        // ----------------------------------------------------
-        // --- (1) VARIABLES ---
-        // ----------------------------------------------------
-        
-        const MODEL_URL = "https://teachablemachine.withgoogle.com/models/CdbpGu3t9/"; 
-        const WATERMARK_LABEL = "Watermark";
-        const CONFIDENCE_THRESHOLD = 0.80;
-        
-        // ----------------------------------------------------
-        // --- (2) GET HTML ELEMENTS ---
-        // ----------------------------------------------------
-        const webcamContainer = document.getElementById("webcam-container");
-        const captureButton = document.getElementById("capture-button");
-        const switchButton = document.getElementById("switch-button");
-        const statusText = document.getElementById("status-text");
-        let labelContainer;
+    <div id="snapshot-container">
+      <img id="snapshot" alt="Captured Snapshot" />
+      <button id="download-button">Download Image</button>
+    </div>
 
-        let model, webcam, maxPredictions;
-        
-        // --- NEW CAMERA TRACKING VARIABLES ---
-        let frontCameraId = null;
-        let backCameraId = null;
-        let currentCameraId = null;
+    <footer>AI-based Secure Exam Monitoring</footer>
+  </div>
 
-        // ----------------------------------------------------
-        // --- (3) NEW CAMERA SETUP LOGIC ---
-        // ----------------------------------------------------
-        
-        /**
-         * This function runs once to get permissions and find all 
-         * available cameras, sorting them by "front" and "back".
-         */
-        async function setupCameras() {
-            console.log("Setting up cameras...");
-            statusText.innerHTML = "Requesting camera permission...";
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
-            try {
-                // 1. Get temporary permission (this is required to read device labels)
-                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                
-                // 2. Now that we have permission, get the full list of devices
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+  <script>
+    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/CdbpGu3t9/";
+    const WATERMARK_LABEL = "Watermark";
+    const CONFIDENCE_THRESHOLD = 0.8;
 
-                console.log("--- AVAILABLE VIDEO CAMERAS ---");
-                if (videoDevices.length === 0) {
-                    console.log("No video cameras found.");
-                    statusText.innerHTML = "Error: No cameras found.";
-                    return;
-                }
+    const webcamContainer = document.getElementById("webcam-container");
+    const captureButton = document.getElementById("capture-button");
+    const switchButton = document.getElementById("switch-button");
+    const statusText = document.getElementById("status-text");
+    const snapshotImg = document.getElementById("snapshot");
+    const downloadButton = document.getElementById("download-button");
 
-                // 3. Find the front and back cameras by their labels
-                videoDevices.forEach((device, index) => {
-                    const label = device.label.toLowerCase();
-                    console.log(`Camera ${index}: ${label}`);
-                    
-                    if (label.includes('back') || label.includes('environment')) {
-                        backCameraId = device.deviceId;
-                    } else if (label.includes('front') || label.includes('user')) {
-                        frontCameraId = device.deviceId;
-                    }
-                });
+    let model, maxPredictions, videoStream, videoEl, facingMode = "environment";
 
-                // 4. Stop the temporary stream
-                tempStream.getTracks().forEach(track => {
-                    track.stop();
-                });
+    async function initCamera() {
+      if (videoStream) videoStream.getTracks().forEach(track => track.stop());
+      try {
+        videoEl = document.createElement("video");
+        videoEl.setAttribute("playsinline", "true");
+        videoEl.width = 400;
+        videoEl.height = 400;
 
-                // 5. Set defaults if labels were weird or missing
-                // If we found a back camera, use it.
-                if (backCameraId) {
-                    currentCameraId = backCameraId;
-                    console.log("Found back camera by label.");
-                } 
-                // If no back camera, but we have a front and another one, use the *other* one.
-                else if (videoDevices.length > 1 && frontCameraId) {
-                    currentCameraId = videoDevices.find(d => d.deviceId !== frontCameraId).deviceId;
-                    console.log("No 'back' label found, using non-front camera.");
-                }
-                // If all else fails, just use the first camera in the list
-                else if (videoDevices.length > 0) {
-                    currentCameraId = videoDevices[0].deviceId;
-                    console.log("Using first available camera as default.");
-                }
-                
-                // If we didn't find a front camera ID, set a default for switching
-                if (!frontCameraId && videoDevices.length > 1) {
-                    frontCameraId = videoDevices.find(d => d.deviceId !== currentCameraId).deviceId;
-                }
-
-                // 6. Start the app with the correct camera
-                init(currentCameraId); 
-
-            } catch (e) {
-                console.error("Error setting up camera:", e);
-                statusText.innerHTML = "Error: Camera permission denied.";
-            }
-        }
-
-        // ----------------------------------------------------
-        // --- (4) MAIN APP LOGIC (MODIFIED) ---
-        // ----------------------------------------------------
-        
-        // This function now starts a camera by its SPECIFIC ID
-        async function init(deviceId) {
-            if (webcam && webcam.stream) {
-                webcam.stop();
-            }
-
-            try {
-                if (!model) { // Only load model on the first run
-                    model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
-                    maxPredictions = model.getTotalClasses();
-                }
-
-                // ✅ --- THE REAL FIX ---
-                // We are forcing the browser to use an EXACT deviceId.
-                // This bypasses all the "facingMode" guesswork.
-                const videoConstraints = {
-                    deviceId: { exact: deviceId }
-                };
-
-                // Flip the image *only* if we're using the front camera
-                const flip = (deviceId === frontCameraId); 
-                webcam = new tmImage.Webcam(400, 400, flip);
-                
-                await webcam.setup({ video: videoConstraints }); 
-                await webcam.play();
-                
-                webcamContainer.innerHTML = '';
-                webcamContainer.appendChild(webcam.canvas);
-                
-                statusText.innerHTML = "Status: Point at exam screen";
-                
-                if (!labelContainer) {
-                    labelContainer = document.getElementById("label-container");
-                    for (let i = 0; i < maxPredictions; i++) {
-                        labelContainer.appendChild(document.createElement("div"));
-                    }
-                }
-                
-                window.requestAnimationFrame(loop);
-            } catch (e) {
-                console.error("Error starting camera:", e);
-                statusText.innerHTML = "Error: Camera failed to start.";
-            }
-        }
-
-        async function loop() {
-            if (webcam && webcam.canvas) {
-                webcam.update(); 
-                await predict(); 
-                window.requestAnimationFrame(loop);
-            }
-        }
-
-        async function predict() {
-            if (!webcam || !webcam.canvas) {
-                return; // Stop predicting if webcam is not ready
-            }
-            
-            const prediction = await model.predict(webcam.canvas);
-            let watermarkFound = false;
-
-            for (let i = 0; i < maxPredictions; i++) {
-                const className = prediction[i].className;
-                const probability = prediction[i].probability;
-
-                const classPrediction = className + ": " + probability.toFixed(2);
-                if (labelContainer && labelContainer.childNodes[i]) {
-                    labelContainer.childNodes[i].innerHTML = classPrediction;
-                }
-
-                if (className === WATERMARK_LABEL && probability > CONFIDENCE_THRESHOLD) {
-                    watermarkFound = true;
-                }
-            }
-
-            if (watermarkFound) {
-                statusText.innerHTML = "Malpractice Detected! Capture Disabled.";
-                captureButton.classList.add("disabled");
-                captureButton.disabled = true;
-            } else {
-                statusText.innerHTML = "Status: Normal";
-                captureButton.classList.remove("disabled");
-                captureButton.disabled = false;
-            }
-        }
-        
-        // --- (5) EVENT LISTENERS (MODIFIED) ---
-        
-        captureButton.addEventListener("click", () => {
-            alert("Image Captured!");
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: facingMode } },
+          audio: false
         });
 
-        // NEW: Event listener for the switch camera button
-        switchButton.addEventListener("click", () => {
-            if (currentCameraId === backCameraId) {
-                currentCameraId = frontCameraId;
-                init(frontCameraId); // Switch to front
-            } else {
-                currentCameraId = backCameraId;
-                init(backCameraId); // Switch to back
-            }
-        });
+        videoEl.srcObject = videoStream;
+        await videoEl.play();
 
-        // --- (6) START THE APP ---
-        
-        // Start the new camera setup process
-        setupCameras();
+        webcamContainer.innerHTML = "";
+        webcamContainer.appendChild(videoEl);
+      } catch (err) {
+        console.error("Camera access error:", err);
+        statusText.innerHTML = "Error accessing camera.";
+      }
+    }
 
-    </script>
+    async function initModel() {
+      const modelURL = MODEL_URL + "model.json";
+      const metadataURL = MODEL_URL + "metadata.json";
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+    }
+
+    async function predict() {
+      const prediction = await model.predict(videoEl);
+      let watermarkFound = false;
+
+      for (let i = 0; i < maxPredictions; i++) {
+        const { className, probability } = prediction[i];
+        if (className === WATERMARK_LABEL && probability > CONFIDENCE_THRESHOLD) {
+          watermarkFound = true;
+          break;
+        }
+      }
+
+      if (watermarkFound) {
+        statusText.innerHTML = "🚨 Malpractice Detected!";
+        captureButton.classList.add("disabled");
+        captureButton.disabled = true;
+      } else {
+        statusText.innerHTML = "✅ Status: Normal";
+        captureButton.classList.remove("disabled");
+        captureButton.disabled = false;
+      }
+
+      requestAnimationFrame(predict);
+    }
+
+    async function startApp() {
+      await initModel();
+      await initCamera();
+      predict();
+      statusText.innerHTML = "✅ Camera Active (Rear)";
+    }
+
+    switchButton.addEventListener("click", async () => {
+      facingMode = facingMode === "user" ? "environment" : "user";
+      await initCamera();
+      statusText.innerHTML = `✅ Switched to ${facingMode === "user" ? "Front" : "Rear"} Camera`;
+    });
+
+    captureButton.addEventListener("click", () => {
+      if (!videoEl || captureButton.disabled) return;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = videoEl.videoWidth;
+      canvas.height = videoEl.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+      const imageData = canvas.toDataURL("image/png");
+      snapshotImg.src = imageData;
+      snapshotImg.style.display = "block";
+      downloadButton.style.display = "inline-block";
+      downloadButton.onclick = () => {
+        const link = document.createElement("a");
+        link.href = imageData;
+        link.download = "VibeAIthon_Snapshot.png";
+        link.click();
+      };
+
+      statusText.innerHTML = "📷 Image Captured!";
+    });
+
+    startApp();
+  </script>
 </body>
 </html>
