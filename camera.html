@@ -1,268 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VibeAIthon Secure Camera</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeAIthon Secure Camera</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #2c2c2c;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
 
-    body {
-      margin: 0;
-      height: 100vh;
-      background: radial-gradient(circle at top, #1b2735, #090a0f);
-      font-family: "Poppins", sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #fff;
-      overflow: hidden;
-    }
+        h1 {
+            font-weight: 500;
+        }
 
-    .camera-wrapper {
-      backdrop-filter: blur(18px);
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 24px;
-      padding: 25px 25px 35px;
-      width: 90%;
-      max-width: 420px;
-      text-align: center;
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
-      animation: fadeIn 1s ease forwards;
-    }
+        #webcam-container {
+            width: 400px;
+            height: 400px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #555;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
 
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(40px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+        #capture-button {
+            margin-top: 25px;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: white;
+            background-color: #0a84ff;
+            border: none;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
 
-    h1 {
-      font-weight: 600;
-      font-size: 1.4rem;
-      margin-bottom: 15px;
-      letter-spacing: 1px;
-    }
+        #capture-button.disabled {
+            background-color: #555;
+            color: #999;
+            opacity: 0.7;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
 
-    #webcam-container {
-      width: 100%;
-      aspect-ratio: 1/1;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      background: rgba(0, 0, 0, 0.3);
-    }
-
-    #status-text {
-      margin-top: 18px;
-      font-size: 1rem;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 8px 15px;
-      border-radius: 8px;
-      display: inline-block;
-      letter-spacing: 0.5px;
-    }
-
-    .btn-group {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-top: 25px;
-      flex-wrap: wrap;
-    }
-
-    button {
-      font-family: inherit;
-      font-weight: 600;
-      font-size: 1em;
-      border: none;
-      border-radius: 100px;
-      padding: 12px 25px;
-      cursor: pointer;
-      color: white;
-      background: linear-gradient(135deg, #007aff, #00c6ff);
-      transition: transform 0.2s, opacity 0.2s;
-    }
-
-    button:hover {
-      transform: translateY(-2px);
-    }
-
-    button.disabled {
-      background: #555;
-      color: #aaa;
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    #switch-button {
-      background: linear-gradient(135deg, #ff6b6b, #ff8e53);
-    }
-
-    footer {
-      margin-top: 18px;
-      font-size: 0.85rem;
-      opacity: 0.6;
-    }
-
-    #snapshot-container {
-      margin-top: 20px;
-    }
-
-    #snapshot {
-      width: 100%;
-      border-radius: 16px;
-      margin-top: 10px;
-      display: none;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-    }
-
-    #download-button {
-      display: none;
-      margin-top: 12px;
-      background: linear-gradient(135deg, #6a11cb, #2575fc);
-    }
-  </style>
+        #status-text {
+            margin-top: 15px;
+            font-size: 1.1em;
+            padding: 8px 15px;
+            border-radius: 8px;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+    </style>
 </head>
 <body>
-  <div class="camera-wrapper">
-    <h1>📸 VibeAIthon Secure Camera</h1>
 
+    <h1>VibeAIthon Secure Camera</h1>
+    
     <div id="webcam-container"></div>
+    
+    <div id="status-text">Starting Camera...</div>
+    
+    <button id="capture-button">Capture</button>
 
-    <div id="status-text">Initializing Camera...</div>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
-    <div class="btn-group">
-      <button id="capture-button">Capture</button>
-      <button id="switch-button">Switch Camera</button>
-    </div>
+    <script type="text/javascript">
+        // ----------------------------------------------------
+        // --- (1) VARIABLES ---
+        // ----------------------------------------------------
+        
+        // This is your correct model URL
+        const MODEL_URL = "https://teachablemachine.withgoogle.com/models/kWCeMzlem/"; 
 
-    <div id="snapshot-container">
-      <img id="snapshot" alt="Captured Snapshot" />
-      <button id="download-button">Download Image</button>
-    </div>
+        // This MUST match the label you created in Teachable Machine
+        const WATERMARK_LABEL = "WaterMark"; 
+        
+        // ✅ FIX #2: Lowered the threshold to 80%
+        // 90% was probably too high. If it still fails, check the console
+        // and you might need to lower it to 0.70 or 0.60.
+        const CONFIDENCE_THRESHOLD = 0.80; 
+        
+        // ----------------------------------------------------
+        // --- (2) GET HTML ELEMENTS ---
+        // ----------------------------------------------------
+        const webcamContainer = document.getElementById("webcam-container");
+        const captureButton = document.getElementById("capture-button");
+        const statusText = document.getElementById("status-text");
 
-    <footer>AI-based Secure Exam Monitoring</footer>
-  </div>
+        let model, webcam, maxPredictions;
 
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+        // ----------------------------------------------------
+        // --- (3) MAIN APP LOGIC ---
+        // ----------------------------------------------------
 
-  <script>
-    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/CdbpGu3t9/";
-    const WATERMARK_LABEL = "Watermark";
-    const CONFIDENCE_THRESHOLD = 0.8;
+        async function init() {
+            const modelURL = MODEL_URL + "model.json";
+            const metadataURL = MODEL_URL + "metadata.json";
 
-    const webcamContainer = document.getElementById("webcam-container");
-    const captureButton = document.getElementById("capture-button");
-    const switchButton = document.getElementById("switch-button");
-    const statusText = document.getElementById("status-text");
-    const snapshotImg = document.getElementById("snapshot");
-    const downloadButton = document.getElementById("download-button");
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
 
-    let model, maxPredictions, videoStream, videoEl, facingMode = "environment";
+                // ✅ FIX #1: Added the 'flip' variable here
+                const flip = true; // Use true for a "selfie" view
+                webcam = new tmImage.Webcam(400, 400, flip); // <-- THE FIX IS HERE
+                await webcam.setup(); // Request camera access
+                await webcam.play();
+                
+                webcamContainer.appendChild(webcam.canvas);
+                statusText.innerHTML = "Status: Point at exam screen";
+                
+                window.requestAnimationFrame(loop);
+            } catch (e) {
+                console.error(e);
+                statusText.innerHTML = "Error: Could not load model. Check URL.";
+            }
+        }
 
-    async function initCamera() {
-      if (videoStream) videoStream.getTracks().forEach(track => track.stop());
-      try {
-        videoEl = document.createElement("video");
-        videoEl.setAttribute("playsinline", "true");
-        videoEl.width = 400;
-        videoEl.height = 400;
+        async function loop() {
+            webcam.update(); 
+            await predict(); 
+            window.requestAnimationFrame(loop);
+        }
 
-        videoStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: facingMode } },
-          audio: false
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            
+            // ✅ FIX #3: Added this debug line.
+            // Check your console (F12 or Right-Click -> Inspect) to see the live predictions!
+            console.log(prediction);
+
+            let watermarkFound = false;
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const className = prediction[i].className;
+                const probability = prediction[i].probability;
+
+                if (className === WATERMARK_LABEL && probability > CONFIDENCE_THRESHOLD) {
+                    watermarkFound = true;
+                    break;
+                }
+            }
+
+            // --- THIS CONTROLS THE BUTTON ---
+            if (watermarkFound) {
+                statusText.innerHTML = "Malpractice Detected! Capture Disabled.";
+                captureButton.classList.add("disabled");
+                captureButton.disabled = true;
+            } else {
+                statusText.innerHTML = "Status: Normal";
+                captureButton.classList.remove("disabled");
+                captureButton.disabled = false;
+            }
+        }
+        
+        captureButton.addEventListener("click", () => {
+            alert("Image Captured!");
         });
 
-        videoEl.srcObject = videoStream;
-        await videoEl.play();
+        init();
 
-        webcamContainer.innerHTML = "";
-        webcamContainer.appendChild(videoEl);
-      } catch (err) {
-        console.error("Camera access error:", err);
-        statusText.innerHTML = "Error accessing camera.";
-      }
-    }
-
-    async function initModel() {
-      const modelURL = MODEL_URL + "model.json";
-      const metadataURL = MODEL_URL + "metadata.json";
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
-    }
-
-    async function predict() {
-      const prediction = await model.predict(videoEl);
-      let watermarkFound = false;
-
-      for (let i = 0; i < maxPredictions; i++) {
-        const { className, probability } = prediction[i];
-        if (className === WATERMARK_LABEL && probability > CONFIDENCE_THRESHOLD) {
-          watermarkFound = true;
-          break;
-        }
-      }
-
-      if (watermarkFound) {
-        statusText.innerHTML = "🚨 Malpractice Detected!";
-        captureButton.classList.add("disabled");
-        captureButton.disabled = true;
-      } else {
-        statusText.innerHTML = "✅ Status: Normal";
-        captureButton.classList.remove("disabled");
-        captureButton.disabled = false;
-      }
-
-      requestAnimationFrame(predict);
-    }
-
-    async function startApp() {
-      await initModel();
-      await initCamera();
-      predict();
-      statusText.innerHTML = "✅ Camera Active (Rear)";
-    }
-
-    switchButton.addEventListener("click", async () => {
-      facingMode = facingMode === "user" ? "environment" : "user";
-      await initCamera();
-      statusText.innerHTML = `✅ Switched to ${facingMode === "user" ? "Front" : "Rear"} Camera`;
-    });
-
-    captureButton.addEventListener("click", () => {
-      if (!videoEl || captureButton.disabled) return;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = videoEl.videoWidth;
-      canvas.height = videoEl.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-
-      const imageData = canvas.toDataURL("image/png");
-      snapshotImg.src = imageData;
-      snapshotImg.style.display = "block";
-      downloadButton.style.display = "inline-block";
-      downloadButton.onclick = () => {
-        const link = document.createElement("a");
-        link.href = imageData;
-        link.download = "VibeAIthon_Snapshot.png";
-        link.click();
-      };
-
-      statusText.innerHTML = "📷 Image Captured!";
-    });
-
-    startApp();
-  </script>
+    </script>
 </body>
 </html>
